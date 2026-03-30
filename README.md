@@ -28,6 +28,7 @@ deep-learning-from-scratch/
 │   └── model.py          # Core implementations
 ├── notebooks/
 │   ├── 01_a_perceptron.ipynb
+│   ├── 01_b_perceptron-Iris Species.ipynb
 │   └── 02_mlp.ipynb (soon)
 └── README.md
 ```
