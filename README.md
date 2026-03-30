@@ -27,7 +27,7 @@ deep-learning-from-scratch/
 ├── deep_learning/
 │   └── model.py          # Core implementations
 ├── notebooks/
-│   ├── 01_perceptron.ipynb
+│   ├── 01_a_perceptron.ipynb
 │   └── 02_mlp.ipynb (soon)
 └── README.md
 ```
@@ -56,7 +56,7 @@ jupyter lab notebooks/
 
 ### 01 · Rosenblatt Perceptron
 
-The original 1957 binary classifier. Implements Rosenblatt's correction rule — weight updates happen per sample, not per batch.
+The original 1958 binary classifier. Implements Rosenblatt's correction rule — weight updates happen per sample, not per batch.
 
 - Heaviside step activation
 - Online learning (one update per sample)
