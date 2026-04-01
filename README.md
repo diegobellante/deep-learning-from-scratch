@@ -30,8 +30,8 @@ deep-learning-from-scratch/
 │   └── utils.py          # Data splitting and visualization utilities
 ├── notebooks/
 │   ├── 01_a_perceptron.ipynb
-│   ├── 01_b_perceptron-Iris Species.ipynb
-│   ├── 02_a_logistic_neuron-Iris Species
+│   ├── 01_b_perceptron_iris.ipynb
+│   ├── 02_a_logistic_neuron_iris.ipynb
 │   └── 03_mlp.ipynb (soon)
 └── README.md
 ```
@@ -99,7 +99,7 @@ probabilities = model.predict(X_test)
 
 | Tool | Role |
 |------|------|
-| Python 3.10+ | Language |
+| Python 3.x | Language |
 | NumPy | All numerical computation |
 | Matplotlib | Visualization |
 | Jupyter | Interactive notebooks |
