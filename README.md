@@ -11,6 +11,7 @@ The goal is not to train state-of-the-art models. The goal is to understand exac
 ## Planned Architectures
 
 - Rosenblatt Perceptron
+- Logistic Neuron
 - Multilayer Perceptron (MLP)
 - Convolutional Neural Network (CNN)
 - Recurrent Neural Network / LSTM
@@ -26,10 +27,12 @@ The goal is not to train state-of-the-art models. The goal is to understand exac
 deep-learning-from-scratch/
 ├── deep_learning/
 │   └── model.py          # Core implementations
+│   └── utils.py          # Data splitting and visualization utilities
 ├── notebooks/
 │   ├── 01_a_perceptron.ipynb
 │   ├── 01_b_perceptron-Iris Species.ipynb
-│   └── 02_mlp.ipynb (soon)
+│   ├── 02_a_logistic_neuron-Iris Species
+│   └── 03_mlp.ipynb (soon)
 └── README.md
 ```
 
@@ -71,6 +74,24 @@ model = Perceptron(n_features=2, lr=0.1, seed=42)
 errors = model.train(X, y, epochs=100)
 predictions = model.predict(X)
 ```
+ 
+### 02 · Logistic Neuron
+ 
+A single neuron with sigmoid activation and binary cross-entropy loss, trained with gradient descent. Architecturally identical to a one-layer MLP — the conceptual bridge between the Perceptron and deep networks.
+ 
+- Sigmoid activation + BCE loss
+- Mini-batch gradient descent with configurable batch size
+- Parametric design: swap activation and loss functions without changing the neuron
+- Validated on Iris (setosa vs versicolor) — same dataset as the Perceptron, direct comparison of learning rules
+ 
+```python
+from deep_learning.model import Neuron, Sigmoid, BCE
+ 
+model = Neuron(n_features=4, activation_function=Sigmoid(), loss_function=BCE(), lr=0.1, seed=42)
+losses = model.train(X_train, y_train, epochs=100)
+probabilities = model.predict(X_test)
+```
+ 
 
 ---
 
