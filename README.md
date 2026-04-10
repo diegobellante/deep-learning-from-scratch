@@ -104,9 +104,10 @@ A feedforward fully connected network with arbitrary depth, trained with backpro
 ```python
 from deep_learning.model import Dense, MLP, ReLU, Softmax, CrossEntropy
  
-hidden = Dense(inputs=4, neurons=8, activation_function=ReLU(), lr=0.1, seed=42)
-output = Dense(inputs=8, neurons=3, activation_function=Softmax(), lr=0.1, seed=42)
-model = MLP(layers=[hidden, output], loss_function=CrossEntropy())
+model = MLP(layers=[
+    Dense(inputs=X_train.shape[1], neurons=8, activation_function=ReLU(), lr=LR, seed=SEED),
+    Dense(inputs=8, neurons=3, activation_function=Softmax(), lr=LR, seed=SEED)
+], loss_function=CrossEntropy())
 losses = model.train(X_train, y_train_one_hot, epochs=2000, batch_size=8)
 predictions = model.predict(X_test)
 ```
