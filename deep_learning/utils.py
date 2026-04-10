@@ -28,3 +28,9 @@ def plot_neuron_heatmap(model):
     plt.yticks([])
     plt.title("Weights")
     plt.show()
+
+def to_one_hot(y, n_classes):
+    one_hot = np.zeros((len(y), n_classes))
+    one_hot[np.arange(len(y)), y.astype(int)] = 1
+    return one_hot
+    

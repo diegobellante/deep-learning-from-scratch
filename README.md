@@ -26,13 +26,13 @@ The goal is not to train state-of-the-art models. The goal is to understand exac
 ```
 deep-learning-from-scratch/
 ├── deep_learning/
-│   └── model.py          # Core implementations
+│   ├── model.py          # Core implementations
 │   └── utils.py          # Data splitting and visualization utilities
 ├── notebooks/
 │   ├── 01_a_perceptron.ipynb
 │   ├── 01_b_perceptron_iris.ipynb
 │   ├── 02_a_logistic_neuron_iris.ipynb
-│   └── 03_mlp.ipynb (soon)
+│   └── 03_MLP_iris.ipynb
 └── README.md
 ```
 
@@ -92,7 +92,24 @@ losses = model.train(X_train, y_train, epochs=100)
 probabilities = model.predict(X_test)
 ```
  
-
+### 03 · Multilayer Perceptron (MLP)
+ 
+A feedforward fully connected network with arbitrary depth, trained with backpropagation derived from the chain rule. Demonstrates the limitations of single-neuron models — Iris (3 classes) is not linearly separable, and the Logistic Neuron cannot solve it.
+ 
+- Modular layer design: stack any number of `Dense` layers with any activation
+- ReLU in hidden layers, Softmax in the output layer
+- Softmax + CrossEntropy loss (fused gradient for numerical stability)
+- Validated on Iris (3 classes) — direct comparison with the Logistic Neuron
+ 
+```python
+from deep_learning.model import Dense, MLP, ReLU, Softmax, CrossEntropy
+ 
+hidden = Dense(inputs=4, neurons=8, activation_function=ReLU(), lr=0.1, seed=42)
+output = Dense(inputs=8, neurons=3, activation_function=Softmax(), lr=0.1, seed=42)
+model = MLP(layers=[hidden, output], loss_function=CrossEntropy())
+losses = model.train(X_train, y_train_one_hot, epochs=2000, batch_size=8)
+predictions = model.predict(X_test)
+```
 ---
 
 ## Stack
