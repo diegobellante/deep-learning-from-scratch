@@ -1,4 +1,4 @@
-# Deep Learning from Scratch
+# Deep Learning from Scratch [![GitHub repo](https://img.shields.io/badge/GitHub-Repo-blue)](https://github.com/diegobellante/deep-learning-from-scratch)
 
 > Building every component by hand — no frameworks, no shortcuts.
 
@@ -123,6 +123,7 @@ predictions = model.predict(X_test)
 | Jupyter | Interactive notebooks |
 
 ---
+[![GitHub repo](https://img.shields.io/badge/GitHub-Repo-blue)](https://github.com/diegobellante/deep-learning-from-scratch)
 
 ## Author
 
