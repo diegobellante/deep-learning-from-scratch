@@ -32,7 +32,8 @@ deep-learning-from-scratch/
 │   ├── 01_a_perceptron.ipynb
 │   ├── 01_b_perceptron_iris.ipynb
 │   ├── 02_a_logistic_neuron_iris.ipynb
-│   └── 03_MLP_iris.ipynb
+│   ├── 03_a_MLP_iris.ipynb
+│   └── 03_b_MLP_mnist.ipynb
 └── README.md
 ```
 
