@@ -61,11 +61,14 @@ class Flatten:
     def __init__(self):
         print(f'Flatten layer')
         
-    def forward(self, layer_inputs):  
+    def forward(self, layer_inputs):  #(n, 16, 5, 5) (N,C,H,W)
+        self.original_shape=layer_inputs.shape #save original shape for backward
+        #print(f'forward shape  {layer_inputs.shape}')
         ret = layer_inputs.reshape(layer_inputs.shape[0],-1)
         return ret
         
-    def backward(self, da):
+    def backward(self, da): #da shape (n, 400)
+        da=da.reshape(self.original_shape)
         return da
         
 class AVGPooling:
@@ -88,7 +91,19 @@ class AVGPooling:
         return self.pool
 
     def backward(self, da):  
-        return da
+        new_da= np.zeros((da.shape[0], da.shape[1],da.shape[2]* self.kernel_size[0],da.shape[3]* self.kernel_size[1]))
+        #print(f'AVGPooling backward receives shape {da.shape}')#(100, 16, 5, 5)
+        #print(f'AVGPooling backward receives  {da[0,0]}')#(100, 16, 5, 5)
+        for n in range(new_da.shape[0]):
+            for c in range(new_da.shape[1]):
+                for row in range(new_da.shape[2]): 
+                    for col in range(new_da.shape[3]): 
+                        #print(f'AVGPooling accediendo a posicion  {row} {col} {int(row/da.shape[2])} {int(col/da.shape[3])}')
+                        new_da[n,c,row,col]=da[n,c,int(row/self.kernel_size[0]),int(col/self.kernel_size[1])]/(self.kernel_size[0]*self.kernel_size[1])
+        #print(f'AVGPooling backward devuelve shape {new_da.shape}')  
+        #print(f'AVGPooling backward devuelve  {new_da[0,0]}')#(100, 16, 5, 5)
+        #print(f'AVGPooling se dividió por  {self.kernel_size[0]*self.kernel_size[1]}')
+        return new_da
       
 class Convolution2D: # filter/kernel slides in 2 dimensions (Height and Width).
 
@@ -97,7 +112,7 @@ class Convolution2D: # filter/kernel slides in 2 dimensions (Height and Width).
         self.lr = lr
         self.input_shape = input_shape
         self.n_kernels = n_kernels
-        self.kernel_size = kernel_size
+        self.kernel_size = kernel_size 
         self.kernels =  rng.standard_normal((n_kernels,input_shape[0], kernel_size[0], kernel_size[1])) * 0.01  
         self.stride = stride
         self.padding = padding
@@ -111,23 +126,69 @@ class Convolution2D: # filter/kernel slides in 2 dimensions (Height and Width).
         
                
     def forward(self, layer_inputs):#(N,1,28,28) (N,6, 28, 28) NCHW  (N,C,H,W) N=batch_size C=channel, H=height W=width
+     
         n_batch=layer_inputs.shape[0]
         self.feature_map = np.zeros((n_batch, self.n_kernels, self.act_map_rows,self.act_map_cols)) # feature map zero-initialized
-        padded_inputs = np.pad(layer_inputs, pad_width=((0, 0),(0, 0), (self.padding, self.padding),(self.padding,self.padding)), mode='constant', constant_values=0) #padding only H and W .Shape (2, 1, 32, 32))
+        self.padded_inputs = np.pad(layer_inputs, pad_width=((0, 0),(0, 0), (self.padding, self.padding),(self.padding,self.padding)), mode='constant', constant_values=0) #padding only H and W .Shape (2, 1, 32, 32))
+        self.xb_padded=self.padded_inputs # save padded inputs
         row=0
         col=0
     
         for k in range(self.n_kernels):
             for row in range(0,self.act_map_rows,self.stride):
                 for col in range(0,self.act_map_cols,self.stride):
-                    input_slice=padded_inputs[:,:,row:row+self.kernel_size[0], col: col+self.kernel_size[1]]
+                    input_slice=self.padded_inputs[:,:,row:row+self.kernel_size[0], col: col+self.kernel_size[1]]
                     self.feature_map[:,k,row,col]=(input_slice * self.kernels[k]).sum()+self.b[k]
 
         self.activation_map=self.activation_function.forward(self.feature_map)
+       
         return self.activation_map
 
     def backward(self, da):
-        return da
+        n_batch=da.shape[0]
+        #print(f'Convolution  backward receives shape {da.shape}')#(100, 16, 10, 10)
+        dz = da * self.activation_function.backward()   #Feature map gradients (batch, n_kernels , h_out, w_out) 
+        #print(f'Convolution  dz  shape {dz.shape}')#(100, 16, 10, 10) (batch, n_kernels , h_out, w_out) 
+
+        dK =   np.zeros(self.kernels.shape) #inicialized in zero for gradient accumulation shape (n_kernels, c, self.kernel_size[0], self.kernel_size[1])
+        #print(f'Convolution  dK  shape {dK.shape}')
+        
+         
+        #print(f'Calculating Kernel gradient ...')
+        for n in range(n_batch):
+            for k in range(self.n_kernels):
+                for c in range(dK.shape[1]):
+                    for row_kernel in range(self.kernel_size[0]):
+                        for col_kernel in range(self.kernel_size[1]):
+                              for row in range(0,self.act_map_rows,self.stride):
+                                    for col in range(0,self.act_map_cols,self.stride):
+                                        #print(f'Convolution  Acumulo en  {row_kernel} {col_kernel} lo que esta en {row+row_kernel} {col+col_kernel}')
+                                        dK[k,c,row_kernel,col_kernel]+=self.xb_padded[n,c,row*self.stride+row_kernel,col*self.stride+col_kernel] * dz[n,k,row,col]  #∂L/∂K[k,c,m,n] = Σₙ Σᵢ Σⱼ X_padded[n,c,i+m,j+n] · dz[n,k,i,j]
+                                        
+        #print(f' dk = {dK} ') 
+        #print(f'Updating weights ...')
+        db = np.sum(dz, axis=(0,2,3))   # bias gradient=   → shape (n_kernels,) sum instead mean  before: db = np.mean(dz, axis=(0,2,3))
+        self.kernels -= self.lr * dK  
+        self.b -= self.lr * db
+       
+        da_prev= np.zeros( (n_batch, self.input_shape[0],self.input_shape[1],self.input_shape[2])) #(n_batch, C, H, W)
+        #print(f'shape da_prev = {da_prev.shape}') 
+
+        #print(f'Calculating input gradient ...')
+        rotated_kernels=self.kernels[::-1]
+        for n in range(n_batch):
+            for k in range(self.n_kernels):
+                for c in range(dK.shape[1]):
+                    for row_kernel in range(self.kernel_size[0]):
+                        for col_kernel in range(self.kernel_size[1]):
+                              for row in range(0,self.act_map_rows,self.stride):
+                                    for col in range(0,self.act_map_cols,self.stride):
+                                        #print(f'Convolution  Acumulo en  {row*self.stride} {col*self.stride} = lo que esta en { dz[n,k,row-row_kernel,col-col_kernel]} * {rotated_kernels[k,c,row_kernel,col_kernel]}')
+                                        da_prev[n,c,row*self.stride,col*self.stride]+= dz[n,k,row-row_kernel,col-col_kernel]  * rotated_kernels[k,c,row_kernel,col_kernel] #sliding from back to top
+       
+     
+        return da_prev
+
 class Dense:
 
     def __init__(self, inputs, neurons, activation_function, lr=0.1, seed=None):
@@ -136,7 +197,7 @@ class Dense:
         self.W =  rng.standard_normal((neurons, inputs)) * 0.01  # (n_neurons,n_inputs)
         self.b = np.zeros(neurons)          # (n_neurons,)
         self.activation_function = activation_function
-        self.xb = None
+        self.xb_padded = None
         self.a = None
         print(f'Dense layer with: {neurons*inputs+neurons} trainable parameters, {neurons} neurons, {neurons*inputs+neurons} connections')
 
@@ -151,10 +212,13 @@ class Dense:
         #print(f'{dz.T.shape} { self.xb.shape}')
         dW = dz.T @ self.xb   # weigth gradient  (neurons, inputs) — no dividtion by len(self.xb)  before:dW = dz.T @ self.xb / len(self.xb)   
         db = np.sum(dz, axis=0)   #bias gradient=   → shape (n_neurons,) sum instead mean  before: db = np.mean(dz, axis=0)
-        da_prev = dz @ self.W             
+              
+        #weights update
         self.W -= self.lr * dW  
         self.b -= self.lr * db
 
+        #da por previous layer
+        da_prev = dz @ self.W      
         return da_prev
         
    
