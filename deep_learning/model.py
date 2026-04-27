@@ -1,7 +1,7 @@
 
 import numpy as np
 
-
+#-----------ACTIVATION FUNCTIONS-------------------------
 def step(z):
     # Heaviside step function: returns 1 if z >= 0, else 0.
     return (z >= 0).astype(int)
@@ -12,7 +12,33 @@ class ReLU:
         return np.maximum(0,z)
    def backward(self):
        return (self.z > 0).astype(int) #  da · ∂a/∂z   Shape: #(batch,1)
-       
+   
+   def init_std(self, fan_in): #fan_in is input size
+       return np.sqrt(2 / fan_in)   # He initializacion
+class Sigmoid:
+   def forward(self, z):   # z: (batch,1)
+        self.a = 1 / (1 + np.exp(-z))
+        return self.a
+   def backward(self):
+       return self.a*(1- self.a) # derivative of sigma = sigma*(1-sigma)  . Shape: #(batch,1)
+   def init_std(self, fan_in): #fan_in is input size
+        return np.sqrt(1 / fan_in)   # Xavier initializacion
+class Softmax:
+    def forward(self, z):   # z: (batch, n_classes)
+         # operates on axis=1
+        e=np.exp(z-np.max(z,axis=1).reshape(z.shape[0],1))
+        self.a=np.divide(e,np.sum(e,axis=1).reshape(z.shape[0],1))
+        return self.a
+          
+    def backward(self):
+        # Gradient fused with CrossEntropy loss.
+        # Only valid when paired with CrossEntropy — do not use with other loss functions.
+        return 1
+        
+    def init_std(self, fan_in): #fan_in is input size
+            return np.sqrt(1 / fan_in)   # Xavier initialization
+        
+#-----------LOSS FUNCTIONS-------------------------        
 class BCE:
    # ── Loss function: Binary Cross-Entropy ──────
    # -(y·log(ŷ) + (1-y)·log(1-ŷ)
@@ -37,26 +63,9 @@ class CrossEntropy:
         N = len(y_true)
         da=(1/N) * (y_pred -y_true)     # ∂L/∂ŷ o ∂L/∂a
         return da # (batch, n_classes)
-    
-class Sigmoid:
-   def forward(self, z):   # z: (batch,1)
-        self.a = 1 / (1 + np.exp(-z))
-        return self.a
-   def backward(self):
-       return self.a*(1- self.a) # derivative of sigma = sigma*(1-sigma)  . Shape: #(batch,1)
+#------------------------------------------------------    
 
-class Softmax:
-    def forward(self, z):   # z: (batch, n_classes)
-         # operates on axis=1
-        e=np.exp(z-np.max(z,axis=1).reshape(z.shape[0],1))
-        self.a=np.divide(e,np.sum(e,axis=1).reshape(z.shape[0],1))
-        return self.a
-          
-    def backward(self):
-        # Gradient fused with CrossEntropy loss.
-        # Only valid when paired with CrossEntropy — do not use with other loss functions.
-        return 1
-
+#----------LAYERS---------
 class Flatten:
     def __init__(self):
         print(f'Flatten layer')
@@ -114,7 +123,9 @@ class Convolution2D: # filter/kernel slides in 2 dimensions (Height and Width).
         self.input_shape = input_shape
         self.n_kernels = n_kernels
         self.kernel_size = kernel_size 
-        self.kernels = rng.standard_normal((n_kernels,input_shape[0], kernel_size[0], kernel_size[1])) * 0.01  
+        #self.kernels = rng.standard_normal((n_kernels,input_shape[0], kernel_size[0], kernel_size[1])) * 0.01
+        self.kernels = rng.standard_normal((n_kernels,input_shape[0], kernel_size[0], kernel_size[1])) * activation_function.init_std(input_shape[0] * kernel_size[0] * kernel_size[1])
+
         self.stride = stride
         self.padding = padding
         self.activation_function = activation_function
@@ -158,20 +169,38 @@ class Convolution2D: # filter/kernel slides in 2 dimensions (Height and Width).
         dz = da * self.activation_function.backward()   #Feature map gradients (batch, n_kernels , h_out, w_out) 
         #print(f'Convolution  dz  shape {dz.shape}')#(100, 16, 10, 10) (batch, n_kernels , h_out, w_out) 
         
-        dK =   np.zeros(self.kernels.shape) #inicialized in zero for gradient accumulation shape (n_kernels, c, self.kernel_size[0], self.kernel_size[1])
-        #print(f'Convolution  dK  shape {dK.shape}')
-        
+       
+      
+        da_prev_padded= np.zeros(self.xb_padded.shape) #(n_batch, C, H, W)
+        #print(f'shape da_prev = {da_prev.shape}') 
+        #kernels_copy = self.kernels.copy()#rotated_kernels=np.flip(self.kernels, axis=(2, 3))
+        for c in range(self.kernels.shape[1]):
+            for row_kernel in range(self.kernel_size[0]):
+                for col_kernel in range(self.kernel_size[1]):
+                      for row in range(0,self.act_map_rows,self.stride):
+                            for col in range(0,self.act_map_cols,self.stride):
+                                 row_input = row  + row_kernel
+                                 col_input = col + col_kernel
+                                 #print(f'Ubico en da_prev {row*self.stride+row_kernel} {col*self.stride+col_kernel}')
+                                 da_prev_padded[:,c,row_input,col_input]+= dz[:,:,row,col] @self.kernels[:,c,row_kernel,col_kernel] #sliding from back to top
+                                                                          
+        if self.padding > 0:
+            #print(f'Hay padding, paso de  {da_prev_padded.shape}  a {da_prev_padded[:, :, self.padding:-self.padding, self.padding:-self.padding].shape}')
+            da_prev = da_prev_padded[:, :, self.padding:-self.padding, self.padding:-self.padding]
+        else:
+            da_prev = da_prev_padded
          
         #print(f'Calculating Kernel gradient ...')
-        for n in range(n_batch):
-            for k in range(self.n_kernels):
-                for c in range(dK.shape[1]):
+        dK =   np.zeros(self.kernels.shape) #inicialized in zero for gradient accumulation shape (n_kernels, c, self.kernel_size[0], self.kernel_size[1])
+        #print(f'Convolution  dK  shape {dK.shape}')
+        #kernel gradiente calculation
+        for c in range(dK.shape[1]):
                     for row_kernel in range(self.kernel_size[0]):
                         for col_kernel in range(self.kernel_size[1]):
                               for row in range(0,self.act_map_rows,self.stride):
                                     for col in range(0,self.act_map_cols,self.stride):
                                         #print(f'Convolution  Acumulo en  {row_kernel} {col_kernel} lo que esta en {row+row_kernel} {col+col_kernel}')
-                                        dK[k,c,row_kernel,col_kernel]+=self.xb_padded[n,c,row*self.stride+row_kernel,col*self.stride+col_kernel] * dz[n,k,row,col]  #∂L/∂K[k,c,m,n] = Σₙ Σᵢ Σⱼ X_padded[n,c,i+m,j+n] · dz[n,k,i,j]
+                                        dK[:,c,row_kernel,col_kernel]+= dz[:,0:self.n_kernels,row,col].T@ self.xb_padded[:,c,row*self.stride+row_kernel,col*self.stride+col_kernel]   #∂L/∂K[k,c,m,n] = Σₙ Σᵢ Σⱼ X_padded[n,c,i+m,j+n] · dz[n,k,i,j]
                                         
         #print(f' dk = {dK} ') 
         #print(f'Updating weights ...')
@@ -179,21 +208,8 @@ class Convolution2D: # filter/kernel slides in 2 dimensions (Height and Width).
         self.kernels -= self.lr * dK  
         self.b -= self.lr * db
         
-        da_prev= np.zeros( (n_batch, self.input_shape[0],self.input_shape[1],self.input_shape[2])) #(n_batch, C, H, W)
-        #print(f'shape da_prev = {da_prev.shape}') 
         
-        #print(f'Calculating input gradient ...')
-        rotated_kernels=self.kernels[::-1]
-        for n in range(n_batch):
-            for k in range(self.n_kernels):
-                for c in range(dK.shape[1]):
-                    for row_kernel in range(self.kernel_size[0]):
-                        for col_kernel in range(self.kernel_size[1]):
-                              for row in range(0,self.act_map_rows,self.stride):
-                                    for col in range(0,self.act_map_cols,self.stride):
-                                        #print(f'Convolution  Acumulo en  {row*self.stride} {col*self.stride} = lo que esta en { dz[n,k,row-row_kernel,col-col_kernel]} * {rotated_kernels[k,c,row_kernel,col_kernel]}')
-                                        da_prev[n,c,row*self.stride,col*self.stride]+= dz[n,k,row-row_kernel,col-col_kernel]  * rotated_kernels[k,c,row_kernel,col_kernel] #sliding from back to top
-        
+               
         
         return da_prev
 
@@ -202,7 +218,8 @@ class Dense:
     def __init__(self, inputs, neurons, activation_function, lr=0.1, seed=None):
         rng = np.random.default_rng(seed)
         self.lr = lr
-        self.W =  rng.standard_normal((neurons, inputs)) * 0.01  # (n_neurons,n_inputs)
+        #self.W =  rng.standard_normal((neurons, inputs)) * 0.01  # (n_neurons,n_inputs)
+        self.W = rng.standard_normal((neurons, inputs)) * activation_function.init_std(inputs)
         self.b = np.zeros(neurons)          # (n_neurons,)
         self.activation_function = activation_function
         self.xb_padded = None
@@ -220,13 +237,16 @@ class Dense:
         #print(f'{dz.T.shape} { self.xb.shape}')
         dW = dz.T @ self.xb   # weigth gradient  (neurons, inputs) — no dividtion by len(self.xb)  before:dW = dz.T @ self.xb / len(self.xb)   
         db = np.sum(dz, axis=0)   #bias gradient=   → shape (n_neurons,) sum instead mean  before: db = np.mean(dz, axis=0)
-              
+
+        #da for previous layer
+        da_prev = dz @ self.W   
+        
         #weights update
         self.W -= self.lr * dW  
         self.b -= self.lr * db
 
-        #da por previous layer
-        da_prev = dz @ self.W      
+        
+          
         return da_prev
         
    
