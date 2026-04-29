@@ -267,8 +267,12 @@ class SequentialNetwork:
           layer_inputs=layer_outputs
        return layer_outputs  #(batch,last_layer_n_neurons)
 
-    def _train_one_epoch(self, X, y, batch_size=1):
+    def _train_one_epoch(self, X, y, batch_size=1,shuffle=False):
         epoch_loss = 0
+        if shuffle:
+            # Shuffle al inicio de cada epoch
+            idx = np.random.permutation(len(X))
+            X, y = X[idx], y[idx]
         for start in range(0, len(X), batch_size):
             xb = X[start:start+batch_size]  # x batch (batch, features)
             yb = y[start:start+batch_size]  # y batch (batch,)
@@ -285,9 +289,9 @@ class SequentialNetwork:
         self.losses.append(epoch_loss)    
         return epoch_loss
 
-    def train(self, X, y, epochs=100, batch_size=1):
+    def train(self, X, y, epochs=100, batch_size=1,shuffle=False):
         for epoch in range(epochs):
-            epoch_loss = self._train_one_epoch(X, y, batch_size)
+            epoch_loss = self._train_one_epoch(X, y, batch_size,shuffle)
         return self.losses
 
 
