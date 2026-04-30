@@ -97,7 +97,7 @@ class AVGPooling:
             for row in range(self.pool.shape[2]): 
                 for col in range(self.pool.shape[3]): 
                     input_slice=layer_inputs[:,c,row*self.kernel_size[0]:row*self.kernel_size[0]+self.kernel_size[0], col*self.kernel_size[1]: col*self.kernel_size[1]+self.kernel_size[1]]
-                    self.pool[:,c,row,col]=np.mean(input_slice)
+                    self.pool[:,c,row,col]=np.mean(input_slice, axis=(1,2))
         return self.pool
 
     def backward(self, da):  
