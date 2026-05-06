@@ -33,7 +33,9 @@ deep-learning-from-scratch/
 │   ├── 01_b_perceptron_iris.ipynb
 │   ├── 02_a_logistic_neuron_iris.ipynb
 │   ├── 03_a_MLP_iris.ipynb
-│   └── 03_b_MLP_mnist.ipynb
+│   ├── 03_b_MLP_mnist.ipynb
+│   ├── 04_a_cnn_shallow_uci_digits.ipynb
+│   └── 04_b_cnn_lenet_5_mnist.ipynb
 └── README.md
 ```
 
@@ -112,6 +114,47 @@ model = MLP(layers=[
 losses = model.train(X_train, y_train_one_hot, epochs=2000, batch_size=8)
 predictions = model.predict(X_test)
 ```
+
+### 04 · Convolutional Neural Network (CNN)
+
+A convolutional network built from scratch, implementing forward and backward passes through Conv2D, pooling, and dense layers. Validated on two benchmarks of increasing complexity.
+
+- `Convolution2D` with configurable kernel size, stride, padding and number of kernels
+- `AVGPooling` for spatial downsampling
+- `Flatten` to bridge convolutional and dense layers
+- Softmax + CrossEntropy output (same as MLP)
+- Optimized convolution using vectorized operations (`fast=True`)
+
+**Shallow CNN — UCI Digits (8×8 grayscale, 10 classes):**
+
+```python
+from deep_learning.model import SequentialNetwork, Convolution2D, Flatten, Dense, ReLU, Softmax, CrossEntropy
+
+model = SequentialNetwork(layers=[
+    Convolution2D(kernel_size=(3,3), n_kernels=16, input_shape=(1,8,8), stride=1, padding=1, activation_function=ReLU(), lr=LR, seed=SEED, fast=True),
+    Flatten(),
+    Dense(inputs=1024, neurons=64, activation_function=ReLU(), lr=LR, seed=SEED),
+    Dense(inputs=64, neurons=10, activation_function=Softmax(), lr=LR, seed=SEED)
+], loss_function=CrossEntropy())
+```
+
+**LeNet-5 — MNIST (28×28 grayscale, 10 classes):**
+
+```python
+model = SequentialNetwork(layers=[
+    Convolution2D(kernel_size=(5,5), n_kernels=6, input_shape=(1,28,28), stride=1, padding=2, activation_function=ReLU(), lr=LR, seed=SEED, fast=True),
+    AVGPooling(kernel_size=(2,2)),
+    Convolution2D(kernel_size=(5,5), n_kernels=16, input_shape=(6,14,14), stride=1, padding=0, activation_function=ReLU(), lr=LR, seed=SEED, fast=True),
+    AVGPooling(kernel_size=(2,2)),
+    Flatten(),
+    Dense(inputs=400, neurons=120, activation_function=ReLU(), lr=LR, seed=SEED),
+    Dense(inputs=120, neurons=84, activation_function=ReLU(), lr=LR, seed=SEED),
+    Dense(inputs=84, neurons=10, activation_function=Softmax(), lr=LR, seed=SEED)
+], loss_function=CrossEntropy())
+```
+
+
+
 ---
 
 ## Stack
